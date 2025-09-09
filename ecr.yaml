@@ -525,6 +525,9 @@ Resources:
         Type: LINUX_CONTAINER
         Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
         ComputeType: BUILD_GENERAL1_SMALL
+        EnvironmentVariables:
+          - Name: AWS_REGION
+            Value: !Ref AWS::Region
       Source:
         Type: CODEPIPELINE
         BuildSpec: !Sub |
@@ -532,12 +535,10 @@ Resources:
           phases:
             build:
               commands:
+                - echo "Extracting image URI from imageDetail.json"
                 - jq -r .ImageURI imageDetail.json > image_uri.txt
                 - IMAGE_URI=$(cat image_uri.txt)
-                - |
-                  cat << EOF > imagedefinitions.json
-                  [{"name":"app","imageUri":"$IMAGE_URI"}]
-                  EOF
+                - echo "Creating taskdef.json"
                 - |
                   cat << EOF > taskdef.json
                   {
@@ -551,7 +552,7 @@ Resources:
                     "containerDefinitions": [
                       {
                         "name": "app",
-                        "image": "<IMAGE1_NAME>",
+                        "image": "$IMAGE_URI",
                         "portMappings": [
                           {
                             "containerPort": 8080,
@@ -570,6 +571,14 @@ Resources:
                     ]
                   }
                   EOF
+                - echo "Creating imagedefinitions.json"
+                - |
+                  cat << EOF > imagedefinitions.json
+                  [{"name":"app","imageUri":"$IMAGE_URI"}]
+                  EOF
+                - echo "Registering task definition"
+                - TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://taskdef.json --region ${AWS::Region} | jq -r .taskDefinition.taskDefinitionArn)
+                - echo "Creating appspec.yaml"
                 - |
                   cat << EOF > appspec.yaml
                   version: 0.0
@@ -577,7 +586,7 @@ Resources:
                     - TargetService:
                         Type: AWS::ECS::Service
                         Properties:
-                          TaskDefinition: "<TASK_DEFINITION>"
+                          TaskDefinition: "$TASK_DEF_ARN"
                           LoadBalancerInfo:
                             ContainerName: "app"
                             ContainerPort: 8080
@@ -587,6 +596,9 @@ Resources:
               - imagedefinitions.json
               - taskdef.json
               - appspec.yaml
+      Tags:
+        - Key: Name
+          Value: AppGenerateSpecs
 
   CodeBuildRole:
     Type: AWS::IAM::Role
@@ -616,6 +628,16 @@ Resources:
                   - s3:GetObjectVersion
                 Resource:
                   - !Sub "${ArtifactBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - ecr:DescribeImages
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ECRRepositoryName}
+              - Effect: Allow
+                Action:
+                  - ecs:RegisterTaskDefinition
+                Resource: "*"
 
   # CodePipeline
   CodePipeline:
