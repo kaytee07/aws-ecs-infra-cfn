@@ -533,11 +533,16 @@ Resources:
         BuildSpec: !Sub |
           version: 0.2
           phases:
+            install:
+              commands:
+                - echo "Installing dependencies"
+                - yum install -y jq
             build:
               commands:
                 - echo "Extracting image URI from imageDetail.json"
-                - jq -r .ImageURI imageDetail.json > image_uri.txt
+                - jq -r .ImageURI imageDetail.json > image_uri.txt || { echo "Failed to extract ImageURI"; exit 1; }
                 - IMAGE_URI=$(cat image_uri.txt)
+                - echo "Image URI: $IMAGE_URI"
                 - echo "Creating taskdef.json"
                 - |
                   cat << EOF > taskdef.json
@@ -571,13 +576,18 @@ Resources:
                     ]
                   }
                   EOF
+                - echo "taskdef.json content:"
+                - cat taskdef.json
                 - echo "Creating imagedefinitions.json"
                 - |
                   cat << EOF > imagedefinitions.json
                   [{"name":"app","imageUri":"$IMAGE_URI"}]
                   EOF
+                - echo "imagedefinitions.json content:"
+                - cat imagedefinitions.json
                 - echo "Registering task definition"
-                - TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://taskdef.json --region ${AWS::Region} | jq -r .taskDefinition.taskDefinitionArn)
+                - TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://taskdef.json --region ${AWS::Region} | jq -r .taskDefinition.taskDefinitionArn) || { echo "Failed to register task definition"; exit 1; }
+                - echo "Task Definition ARN: $TASK_DEF_ARN"
                 - echo "Creating appspec.yaml"
                 - |
                   cat << EOF > appspec.yaml
@@ -591,6 +601,8 @@ Resources:
                             ContainerName: "app"
                             ContainerPort: 8080
                   EOF
+                - echo "Generated appspec.yaml:"
+                - cat appspec.yaml
           artifacts:
             files:
               - imagedefinitions.json
@@ -638,6 +650,12 @@ Resources:
                 Action:
                   - ecs:RegisterTaskDefinition
                 Resource: "*"
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - !GetAtt ECSExecutionRole.Arn
+                  - !GetAtt ECSTaskRole.Arn
 
   # CodePipeline
   CodePipeline:
