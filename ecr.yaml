@@ -543,79 +543,38 @@ Resources:
                 - jq -r .ImageURI imageDetail.json > image_uri.txt || { echo "Failed to extract ImageURI"; exit 1; }
                 - IMAGE_URI=$(cat image_uri.txt) || { echo "Failed to read image_uri.txt"; exit 1; }
                 - echo "Image URI: $IMAGE_URI"
-
                 - echo "Creating taskdef.json"
-                - >
-                  cat <<EOF > taskdef.json
-                  {
-                    "family": "my-taskdef",
-                    "executionRoleArn": "arn:aws:iam::<account-id>:role/ecsTaskExecutionRole",
-                    "networkMode": "awsvpc",
-                    "containerDefinitions": [
-                      {
-                        "name": "my-container",
-                        "image": "${IMAGE_URI}",
-                        "essential": true,
-                        "memory": 512,
-                        "cpu": 256,
-                        "portMappings": [
-                          {
-                            "containerPort": 80,
-                            "protocol": "tcp"
-                          }
-                        ]
-                      }
-                    ],
-                    "requiresCompatibilities": ["FARGATE"],
-                    "cpu": "256",
-                    "memory": "512"
-                  }
+                - |
+                  cat << 'EOF' > taskdef.json
+                  ...
                   EOF
                 - echo "taskdef.json content:"
                 - cat taskdef.json || { echo "Failed to create taskdef.json"; exit 1; }
-
                 - echo "Creating imagedefinitions.json"
-                - >
-                  cat <<EOF > imagedefinitions.json
-                  [
-                    {
-                      "name": "my-container",
-                      "imageUri": "${IMAGE_URI}"
-                    }
-                  ]
+                - |
+                  cat << 'EOF' > imagedefinitions.json
+                  ...
                   EOF
                 - echo "imagedefinitions.json content:"
                 - cat imagedefinitions.json || { echo "Failed to create imagedefinitions.json"; exit 1; }
-
                 - echo "Registering task definition"
-                - TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://taskdef.json --region eu-west-1 | jq -r .taskDefinition.taskDefinitionArn) || { echo "Failed to register task definition"; exit 1; }
+                - TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://taskdef.json --region ${AWS::Region} | jq -r .taskDefinition.taskDefinitionArn) || { echo "Failed to register task definition"; exit 1; }
                 - echo "Task Definition ARN: $TASK_DEF_ARN"
-
                 - echo "Creating appspec.yaml"
-                - >
-                  cat <<EOF > appspec.yaml
-                  version: 0.0
-                  Resources:
-                    - TargetService:
-                        Type: AWS::ECS::Service
-                        Properties:
-                          TaskDefinition: "${TASK_DEF_ARN}"
-                          LoadBalancerInfo:
-                            ContainerName: "my-container"
-                            ContainerPort: 80
+                - |
+                  cat << 'EOF' > appspec.yaml
+                  ...
                   EOF
                 - echo "Generated appspec.yaml:"
                 - cat appspec.yaml || { echo "Failed to create appspec.yaml"; exit 1; }
-
           artifacts:
             files:
               - imagedefinitions.json
               - taskdef.json
               - appspec.yaml
-
-      Tags:
-        - Key: Name
-          Value: AppGenerateSpecs
+                Tags:
+                  - Key: Name
+                    Value: AppGenerateSpecs
 
   CodeBuildRole:
     Type: AWS::IAM::Role
