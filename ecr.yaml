@@ -540,74 +540,79 @@ Resources:
             build:
               commands:
                 - echo "Extracting image URI from imageDetail.json"
-                - jq -r .ImageURI imageDetail.json > image_uri.txt || { echo "Failed to extract ImageURI from imageDetail.json"; exit 1; }
+                - jq -r .ImageURI imageDetail.json > image_uri.txt || { echo "Failed to extract ImageURI"; exit 1; }
                 - IMAGE_URI=$(cat image_uri.txt) || { echo "Failed to read image_uri.txt"; exit 1; }
                 - echo "Image URI: $IMAGE_URI"
+
                 - echo "Creating taskdef.json"
-                - |
-                  cat << 'EOF' > taskdef.json
+                - >
+                  cat <<EOF > taskdef.json
                   {
-                    "family": "AppTask",
-                    "cpu": "256",
-                    "memory": "512",
+                    "family": "my-taskdef",
+                    "executionRoleArn": "arn:aws:iam::<account-id>:role/ecsTaskExecutionRole",
                     "networkMode": "awsvpc",
-                    "requiresCompatibilities": ["FARGATE"],
-                    "executionRoleArn": "${ECSExecutionRole.Arn}",
-                    "taskRoleArn": "${ECSTaskRole.Arn}",
                     "containerDefinitions": [
                       {
-                        "name": "app",
-                        "image": "$IMAGE_URI",
+                        "name": "my-container",
+                        "image": "${IMAGE_URI}",
+                        "essential": true,
+                        "memory": 512,
+                        "cpu": 256,
                         "portMappings": [
                           {
-                            "containerPort": 8080,
-                            "hostPort": 8080
+                            "containerPort": 80,
+                            "protocol": "tcp"
                           }
-                        ],
-                        "logConfiguration": {
-                          "logDriver": "awslogs",
-                          "options": {
-                            "awslogs-group": "${LogGroup}",
-                            "awslogs-region": "${AWS::Region}",
-                            "awslogs-stream-prefix": "app"
-                          }
-                        }
+                        ]
                       }
-                    ]
+                    ],
+                    "requiresCompatibilities": ["FARGATE"],
+                    "cpu": "256",
+                    "memory": "512"
                   }
                   EOF
                 - echo "taskdef.json content:"
                 - cat taskdef.json || { echo "Failed to create taskdef.json"; exit 1; }
+
                 - echo "Creating imagedefinitions.json"
-                - |
-                  cat << 'EOF' > imagedefinitions.json
-                  [{"name":"app","imageUri":"$IMAGE_URI"}]
+                - >
+                  cat <<EOF > imagedefinitions.json
+                  [
+                    {
+                      "name": "my-container",
+                      "imageUri": "${IMAGE_URI}"
+                    }
+                  ]
                   EOF
                 - echo "imagedefinitions.json content:"
                 - cat imagedefinitions.json || { echo "Failed to create imagedefinitions.json"; exit 1; }
+
                 - echo "Registering task definition"
-                - TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://taskdef.json --region ${AWS::Region} | jq -r .taskDefinition.taskDefinitionArn) || { echo "Failed to register task definition"; exit 1; }
+                - TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://taskdef.json --region eu-west-1 | jq -r .taskDefinition.taskDefinitionArn) || { echo "Failed to register task definition"; exit 1; }
                 - echo "Task Definition ARN: $TASK_DEF_ARN"
+
                 - echo "Creating appspec.yaml"
-                - |
-                  cat << 'EOF' > appspec.yaml
+                - >
+                  cat <<EOF > appspec.yaml
                   version: 0.0
                   Resources:
                     - TargetService:
                         Type: AWS::ECS::Service
                         Properties:
-                          TaskDefinition: "$TASK_DEF_ARN"
+                          TaskDefinition: "${TASK_DEF_ARN}"
                           LoadBalancerInfo:
-                            ContainerName: "app"
-                            ContainerPort: 8080
+                            ContainerName: "my-container"
+                            ContainerPort: 80
                   EOF
                 - echo "Generated appspec.yaml:"
                 - cat appspec.yaml || { echo "Failed to create appspec.yaml"; exit 1; }
+
           artifacts:
             files:
               - imagedefinitions.json
               - taskdef.json
               - appspec.yaml
+
       Tags:
         - Key: Name
           Value: AppGenerateSpecs
