@@ -540,12 +540,12 @@ Resources:
             build:
               commands:
                 - echo "Extracting image URI from imageDetail.json"
-                - jq -r .ImageURI imageDetail.json > image_uri.txt || { echo "Failed to extract ImageURI"; exit 1; }
-                - IMAGE_URI=$(cat image_uri.txt)
+                - jq -r .ImageURI imageDetail.json > image_uri.txt || { echo "Failed to extract ImageURI from imageDetail.json"; exit 1; }
+                - IMAGE_URI=$(cat image_uri.txt) || { echo "Failed to read image_uri.txt"; exit 1; }
                 - echo "Image URI: $IMAGE_URI"
                 - echo "Creating taskdef.json"
                 - |
-                  cat << EOF > taskdef.json
+                  cat << 'EOF' > taskdef.json
                   {
                     "family": "AppTask",
                     "cpu": "256",
@@ -577,20 +577,20 @@ Resources:
                   }
                   EOF
                 - echo "taskdef.json content:"
-                - cat taskdef.json
+                - cat taskdef.json || { echo "Failed to create taskdef.json"; exit 1; }
                 - echo "Creating imagedefinitions.json"
                 - |
-                  cat << EOF > imagedefinitions.json
+                  cat << 'EOF' > imagedefinitions.json
                   [{"name":"app","imageUri":"$IMAGE_URI"}]
                   EOF
                 - echo "imagedefinitions.json content:"
-                - cat imagedefinitions.json
+                - cat imagedefinitions.json || { echo "Failed to create imagedefinitions.json"; exit 1; }
                 - echo "Registering task definition"
                 - TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://taskdef.json --region ${AWS::Region} | jq -r .taskDefinition.taskDefinitionArn) || { echo "Failed to register task definition"; exit 1; }
                 - echo "Task Definition ARN: $TASK_DEF_ARN"
                 - echo "Creating appspec.yaml"
                 - |
-                  cat << EOF > appspec.yaml
+                  cat << 'EOF' > appspec.yaml
                   version: 0.0
                   Resources:
                     - TargetService:
@@ -602,7 +602,7 @@ Resources:
                             ContainerPort: 8080
                   EOF
                 - echo "Generated appspec.yaml:"
-                - cat appspec.yaml
+                - cat appspec.yaml || { echo "Failed to create appspec.yaml"; exit 1; }
           artifacts:
             files:
               - imagedefinitions.json
