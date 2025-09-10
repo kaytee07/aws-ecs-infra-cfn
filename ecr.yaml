@@ -539,7 +539,7 @@ Resources:
                 - jq -r .ImageURI imageDetail.json > image_uri.txt || { echo "Failed to parse imageDetail.json"; exit 1; }
                 - IMAGE_URI=$(cat image_uri.txt)
                 - |
-                  cat << EOF > taskdef.json
+                  cat > taskdef.json << EOF
                   {
                     "family": "AppTask",
                     "cpu": "256",
@@ -577,7 +577,7 @@ Resources:
                 - aws ecs register-task-definition --cli-input-json file://taskdef.json > taskdef_output.json || { echo "Failed to register task definition: $(cat taskdef_output.json)"; exit 1; }
                 - TASK_DEF_ARN=$(jq -r .taskDefinition.taskDefinitionArn taskdef_output.json || { echo "Failed to parse taskdef_output.json"; exit 1; })
                 - |
-                  cat << EOF > appspec.yaml
+                  cat > appspec.yaml << EOF
                   version: 0.0
                   Resources:
                     - TargetService:
@@ -589,7 +589,7 @@ Resources:
                             ContainerPort: 8080
                   EOF
                 - |
-                  cat << EOF > imagedefinitions.json
+                  cat > imagedefinitions.json << EOF
                   [{"name":"app","imageUri":"$IMAGE_URI"}]
                   EOF
           artifacts:
