@@ -41,10 +41,6 @@ Parameters:
     Type: Number
     Default: 4
     Description: Maximum number of ECS tasks for auto-scaling
-  ECRRepositoryName:
-    Type: String
-    Default: java-app-repo
-    Description: Name of the existing ECR repository
 
 Resources:
   # VPC Configuration
@@ -247,6 +243,13 @@ Resources:
         - Key: Name
           Value: AppCluster
 
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: java-app-repo
+      ImageScanningConfiguration:
+        ScanOnPush: true
+
   # ECS Task Definition
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -261,7 +264,7 @@ Resources:
       TaskRoleArn: !GetAtt ECSTaskRole.Arn
       ContainerDefinitions:
         - Name: app
-          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepositoryName}:latest"
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/java-app-repo:latest"
           PortMappings:
             - ContainerPort: 8080
               HostPort: 8080
@@ -287,17 +290,6 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
-      Policies:
-        - PolicyName: ECRPullPolicy
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - ecr:GetDownloadUrlForLayer
-                  - ecr:BatchGetImage
-                  - ecr:BatchCheckLayerAvailability
-                Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ECRRepositoryName}
 
   ECSTaskRole:
     Type: AWS::IAM::Role
@@ -525,56 +517,68 @@ Resources:
         Type: LINUX_CONTAINER
         Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
         ComputeType: BUILD_GENERAL1_SMALL
-        EnvironmentVariables:
-          - Name: AWS_REGION
-            Value: !Ref AWS::Region
       Source:
         Type: CODEPIPELINE
         BuildSpec: !Sub |
           version: 0.2
           phases:
-            install:
-              commands:
-                - echo "Installing dependencies"
-                - yum install -y jq
             build:
               commands:
-                - echo "Extracting image URI from imageDetail.json"
-                - jq -r .ImageURI imageDetail.json > image_uri.txt || { echo "Failed to extract ImageURI"; exit 1; }
-                - IMAGE_URI=$(cat image_uri.txt) || { echo "Failed to read image_uri.txt"; exit 1; }
-                - echo "Image URI: $IMAGE_URI"
-                - echo "Creating taskdef.json"
+                - jq -r .ImageURI imageDetail.json > image_uri.txt
+                - IMAGE_URI=$(cat image_uri.txt)
                 - |
-                  cat << 'EOF' > taskdef.json
-                  ...
+                  cat << EOF > imagedefinitions.json
+                  [{"name":"app","imageUri":"$IMAGE_URI"}]
                   EOF
-                - echo "taskdef.json content:"
-                - cat taskdef.json || { echo "Failed to create taskdef.json"; exit 1; }
-                - echo "Creating imagedefinitions.json"
                 - |
-                  cat << 'EOF' > imagedefinitions.json
-                  ...
+                  cat << EOF > taskdef.json
+                  {
+                    "family": "AppTask",
+                    "cpu": "256",
+                    "memory": "512",
+                    "networkMode": "awsvpc",
+                    "requiresCompatibilities": ["FARGATE"],
+                    "executionRoleArn": "${ECSExecutionRole.Arn}",
+                    "taskRoleArn": "${ECSTaskRole.Arn}",
+                    "containerDefinitions": [
+                      {
+                        "name": "app",
+                        "image": "<IMAGE1_NAME>",
+                        "portMappings": [
+                          {
+                            "containerPort": 8080,
+                            "hostPort": 8080
+                          }
+                        ],
+                        "logConfiguration": {
+                          "logDriver": "awslogs",
+                          "options": {
+                            "awslogs-group": "${LogGroup}",
+                            "awslogs-region": "${AWS::Region}",
+                            "awslogs-stream-prefix": "app"
+                          }
+                        }
+                      }
+                    ]
+                  }
                   EOF
-                - echo "imagedefinitions.json content:"
-                - cat imagedefinitions.json || { echo "Failed to create imagedefinitions.json"; exit 1; }
-                - echo "Registering task definition"
-                - TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://taskdef.json --region ${AWS::Region} | jq -r .taskDefinition.taskDefinitionArn) || { echo "Failed to register task definition"; exit 1; }
-                - echo "Task Definition ARN: $TASK_DEF_ARN"
-                - echo "Creating appspec.yaml"
                 - |
-                  cat << 'EOF' > appspec.yaml
-                  ...
+                  cat << EOF > appspec.yaml
+                  version: 0.0
+                  Resources:
+                    - TargetService:
+                        Type: AWS::ECS::Service
+                        Properties:
+                          TaskDefinition: "<TASK_DEFINITION>"
+                          LoadBalancerInfo:
+                            ContainerName: "app"
+                            ContainerPort: 8080
                   EOF
-                - echo "Generated appspec.yaml:"
-                - cat appspec.yaml || { echo "Failed to create appspec.yaml"; exit 1; }
           artifacts:
             files:
               - imagedefinitions.json
               - taskdef.json
               - appspec.yaml
-      Tags:
-        - Key: Name
-          Value: AppGenerateSpecs
 
   CodeBuildRole:
     Type: AWS::IAM::Role
@@ -604,24 +608,8 @@ Resources:
                   - s3:GetObjectVersion
                 Resource:
                   - !Sub "${ArtifactBucket.Arn}/*"
-              - Effect: Allow
-                Action:
-                  - ecr:DescribeImages
-                  - ecr:GetDownloadUrlForLayer
-                  - ecr:BatchGetImage
-                Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ECRRepositoryName}
-              - Effect: Allow
-                Action:
-                  - ecs:RegisterTaskDefinition
-                Resource: "*"
-              - Effect: Allow
-                Action:
-                  - iam:PassRole
-                Resource:
-                  - !GetAtt ECSExecutionRole.Arn
-                  - !GetAtt ECSTaskRole.Arn
 
-  # CodePipelines
+  # CodePipeline
   CodePipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
@@ -640,7 +628,7 @@ Resources:
                 Provider: ECR
                 Version: "1"
               Configuration:
-                RepositoryName: !Ref ECRRepositoryName
+                RepositoryName: !Ref ECRRepository
                 ImageTag: latest
               OutputArtifacts:
                 - Name: SourceArtifact
@@ -710,7 +698,7 @@ Resources:
                   - ecr:DescribeImages
                   - ecr:GetDownloadUrlForLayer
                   - ecr:BatchGetImage
-                Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ECRRepositoryName}
+                Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/java-app-repo
               - Effect: Allow
                 Action:
                   - codedeploy:CreateDeployment
@@ -718,7 +706,6 @@ Resources:
                   - codedeploy:GetDeploymentConfig
                   - codedeploy:GetApplication
                   - codedeploy:GetDeploymentGroup
-                  - codedeploy:RegisterApplicationRevision
                 Resource: "*"
               - Effect: Allow
                 Action:
@@ -749,7 +736,7 @@ Resources:
           action-type:
             - PUSH
           repository-name:
-            - !Ref ECRRepositoryName
+            - !Ref ECRRepository
       Targets:
         - Arn: !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${CodePipeline}
           Id: CodePipelineTarget
@@ -782,7 +769,7 @@ Outputs:
 
   ECRRepositoryUri:
     Description: URI of the ECR repository
-    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepositoryName}
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepository}
 
   ECSClusterName:
     Description: Name of the ECS cluster
