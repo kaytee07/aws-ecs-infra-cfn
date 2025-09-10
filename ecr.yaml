@@ -523,21 +523,34 @@ Resources:
         Type: CODEPIPELINE
       Environment:
         Type: LINUX_CONTAINER
-        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        Image: aws/codebuild/standard:5.0
         ComputeType: BUILD_GENERAL1_SMALL
-      # ... inside CodeBuildProject ...
+        EnvironmentVariables:
+          - Name: ECR_REPOSITORY_URI
+            Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepositoryName}
+          - Name: TASK_EXECUTION_ROLE_ARN
+            Value: !GetAtt ECSExecutionRole.Arn
+          - Name: TASK_ROLE_ARN
+            Value: !GetAtt ECSTaskRole.Arn
+          - Name: LOG_GROUP
+            Value: !Ref LogGroup
+          - Name: AWS_REGION
+            Value: !Ref AWS::Region
       Source:
         Type: CODEPIPELINE
-        BuildSpec: !Sub |
+        BuildSpec: |
           version: 0.2
           phases:
+            pre_build:
+              commands:
+                - echo Logging in to Amazon ECR...
+                - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URI
             build:
               commands:
-                - export AWS_DEFAULT_REGION=${AWS::Region}
-                - aws --version
-                - aws sts get-caller-identity
+                - echo Build started on `date`
                 - jq -r .ImageURI imageDetail.json > image_uri.txt || { echo "Failed to parse imageDetail.json"; exit 1; }
                 - IMAGE_URI=$(cat image_uri.txt)
+                - echo Creating taskdef.json...
                 - |
                   cat > taskdef.json << EOF
                   {
@@ -546,23 +559,25 @@ Resources:
                     "memory": "512",
                     "networkMode": "awsvpc",
                     "requiresCompatibilities": ["FARGATE"],
-                    "executionRoleArn": "${ECSExecutionRole.Arn}",
-                    "taskRoleArn": "${ECSTaskRole.Arn}",
+                    "executionRoleArn": "$TASK_EXECUTION_ROLE_ARN",
+                    "taskRoleArn": "$TASK_ROLE_ARN",
                     "containerDefinitions": [
                       {
                         "name": "app",
                         "image": "$IMAGE_URI",
+                        "essential": true,
                         "portMappings": [
                           {
                             "containerPort": 8080,
-                            "hostPort": 8080
+                            "hostPort": 8080,
+                            "protocol": "tcp"
                           }
                         ],
                         "logConfiguration": {
                           "logDriver": "awslogs",
                           "options": {
-                            "awslogs-group": "${LogGroup}",
-                            "awslogs-region": "${AWS::Region}",
+                            "awslogs-group": "$LOG_GROUP",
+                            "awslogs-region": "$AWS_REGION",
                             "awslogs-stream-prefix": "app"
                           }
                         }
@@ -570,12 +585,14 @@ Resources:
                     ]
                   }
                   EOF
-                - echo "Validating taskdef.json..."
-                - jq . taskdef.json || { echo "Invalid JSON in taskdef.json"; exit 1; }
-                - echo "Contents of taskdef.json:"
+                - echo Validating taskdef.json...
+                - python -m json.tool taskdef.json > /dev/null || { echo "Invalid JSON in taskdef.json"; exit 1; }
+                - echo Contents of taskdef.json:
                 - cat taskdef.json
+                - echo Registering task definition...
                 - aws ecs register-task-definition --cli-input-json file://taskdef.json > taskdef_output.json || { echo "Failed to register task definition: $(cat taskdef_output.json)"; exit 1; }
                 - TASK_DEF_ARN=$(jq -r .taskDefinition.taskDefinitionArn taskdef_output.json || { echo "Failed to parse taskdef_output.json"; exit 1; })
+                - echo Creating appspec.yaml...
                 - |
                   cat > appspec.yaml << EOF
                   version: 0.0
@@ -588,10 +605,14 @@ Resources:
                             ContainerName: "app"
                             ContainerPort: 8080
                   EOF
+                - echo Creating imagedefinitions.json...
                 - |
                   cat > imagedefinitions.json << EOF
                   [{"name":"app","imageUri":"$IMAGE_URI"}]
                   EOF
+            post_build:
+              commands:
+                - echo Build completed on `date`
           artifacts:
             files:
               - imagedefinitions.json
