@@ -515,66 +515,66 @@ Resources:
         - arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS
 
   CodeBuildProject:
-  Type: AWS::CodeBuild::Project
-  Properties:
-    Name: AppGenerateSpecs
-    ServiceRole: !GetAtt CodeBuildRole.Arn
-    Artifacts:
-      Type: CODEPIPELINE
-    Environment:
-      Type: LINUX_CONTAINER
-      Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
-      ComputeType: BUILD_GENERAL1_SMALL
-      EnvironmentVariables:
-        - Name: AWS_REGION
-          Value: !Ref AWS::Region
-    Source:
-      Type: CODEPIPELINE
-      BuildSpec: !Sub |
-        version: 0.2
-        phases:
-          install:
-            commands:
-              - echo "Installing dependencies"
-              - yum install -y jq
-          build:
-            commands:
-              - echo "Extracting image URI from imageDetail.json"
-              - jq -r .ImageURI imageDetail.json > image_uri.txt || { echo "Failed to extract ImageURI"; exit 1; }
-              - IMAGE_URI=$(cat image_uri.txt) || { echo "Failed to read image_uri.txt"; exit 1; }
-              - echo "Image URI: $IMAGE_URI"
-              - echo "Creating taskdef.json"
-              - |
-                cat << 'EOF' > taskdef.json
-                ...
-                EOF
-              - echo "taskdef.json content:"
-              - cat taskdef.json || { echo "Failed to create taskdef.json"; exit 1; }
-              - echo "Creating imagedefinitions.json"
-              - |
-                cat << 'EOF' > imagedefinitions.json
-                ...
-                EOF
-              - echo "imagedefinitions.json content:"
-              - cat imagedefinitions.json || { echo "Failed to create imagedefinitions.json"; exit 1; }
-              - echo "Registering task definition"
-              - TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://taskdef.json --region ${AWS::Region} | jq -r .taskDefinition.taskDefinitionArn) || { echo "Failed to register task definition"; exit 1; }
-              - echo "Task Definition ARN: $TASK_DEF_ARN"
-              - echo "Creating appspec.yaml"
-              - |
-                cat << 'EOF' > appspec.yaml
-                ...
-                EOF
-              - echo "Generated appspec.yaml:"
-              - cat appspec.yaml || { echo "Failed to create appspec.yaml"; exit 1; }
-        artifacts:
-          files:
-            - imagedefinitions.json
-            - taskdef.json
-            - appspec.yaml
-    Tags:
-      - Key: Name
-        Value: AppGenerateSpecs
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: AppGenerateSpecs
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        ComputeType: BUILD_GENERAL1_SMALL
+        EnvironmentVariables:
+          - Name: AWS_REGION
+            Value: !Ref AWS::Region
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Sub |
+          version: 0.2
+          phases:
+            install:
+              commands:
+                - echo "Installing dependencies"
+                - yum install -y jq
+            build:
+              commands:
+                - echo "Extracting image URI from imageDetail.json"
+                - jq -r .ImageURI imageDetail.json > image_uri.txt || { echo "Failed to extract ImageURI"; exit 1; }
+                - IMAGE_URI=$(cat image_uri.txt) || { echo "Failed to read image_uri.txt"; exit 1; }
+                - echo "Image URI: $IMAGE_URI"
+                - echo "Creating taskdef.json"
+                - |
+                  cat << 'EOF' > taskdef.json
+                  ...
+                  EOF
+                - echo "taskdef.json content:"
+                - cat taskdef.json || { echo "Failed to create taskdef.json"; exit 1; }
+                - echo "Creating imagedefinitions.json"
+                - |
+                  cat << 'EOF' > imagedefinitions.json
+                  ...
+                  EOF
+                - echo "imagedefinitions.json content:"
+                - cat imagedefinitions.json || { echo "Failed to create imagedefinitions.json"; exit 1; }
+                - echo "Registering task definition"
+                - TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://taskdef.json --region ${AWS::Region} | jq -r .taskDefinition.taskDefinitionArn) || { echo "Failed to register task definition"; exit 1; }
+                - echo "Task Definition ARN: $TASK_DEF_ARN"
+                - echo "Creating appspec.yaml"
+                - |
+                  cat << 'EOF' > appspec.yaml
+                  ...
+                  EOF
+                - echo "Generated appspec.yaml:"
+                - cat appspec.yaml || { echo "Failed to create appspec.yaml"; exit 1; }
+          artifacts:
+            files:
+              - imagedefinitions.json
+              - taskdef.json
+              - appspec.yaml
+      Tags:
+        - Key: Name
+          Value: AppGenerateSpecs
 
 CodeBuildRole:
   Type: AWS::IAM::Role
