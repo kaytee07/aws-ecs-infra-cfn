@@ -1,14 +1,12 @@
 template-file-path: ecr.yaml
 parameters:
-  PrivateSubnet1Cidr: 10.0.3.0/24
-  MaxTasks: '4'
-  PublicSubnet2Cidr: 10.0.2.0/24
+  PrivateSubnet1Cidr: 10.0.2.0/24
+  AllowedGithubRepo: kaytee07/aws-java-app
+  PublicSubnet2Cidr: 10.0.1.0/24
   VpcCidr: 10.0.0.0/16
-  ECRRepositoryName: java-app-repo
-  PrivateSubnet2Cidr: 10.0.4.0/24
-  GitHubOrg: kaytee07
-  MinTasks: '1'
-  PublicSubnet1Cidr: 10.0.1.0/24
-  DesiredCount: '1'
-  GitHubRepo: aws-java-webapp
+  EnvironmentName: taylor-ecs-stack
+  PrivateSubnet2Cidr: 10.0.3.0/24
+  AllowedGithubBranch: refs/heads/main
+  AppPort: '80'
+  PublicSubnet1Cidr: 10.0.0.0/24
 tags: {}
