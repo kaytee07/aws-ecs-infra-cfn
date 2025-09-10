@@ -316,10 +316,9 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/ecs/app/${ECRRepositoryName}:*
+                Resource: "*"
 
   LogGroup:
     Type: AWS::Logs::LogGroup
@@ -619,7 +618,6 @@ Resources:
               - imagedefinitions.json
               - taskdef.json
               - appspec.yaml
-
   CodeBuildRole:
     Type: AWS::IAM::Role
     Properties:
@@ -651,6 +649,13 @@ Resources:
               - Effect: Allow
                 Action:
                   - ecs:RegisterTaskDefinition
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
                 Resource: "*"
 
   # CodePipeline
