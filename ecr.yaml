@@ -533,7 +533,10 @@ Resources:
           phases:
             build:
               commands:
-                - jq -r .ImageURI imageDetail.json > image_uri.txt
+                - export AWS_DEFAULT_REGION=${AWS::Region}
+                - aws --version
+                - aws sts get-caller-identity
+                - jq -r .ImageURI imageDetail.json > image_uri.txt || { echo "Failed to parse imageDetail.json"; exit 1; }
                 - IMAGE_URI=$(cat image_uri.txt)
                 - |
                   cat << EOF > taskdef.json
@@ -567,10 +570,12 @@ Resources:
                     ]
                   }
                   EOF
-                - |  # New: Register the task definition and capture the ARN
-                  aws ecs register-task-definition --cli-input-json file://taskdef.json > taskdef_output.json
-                - |  # New: Extract the ARN
-                  TASK_DEF_ARN=$(jq -r .taskDefinition.taskDefinitionArn taskdef_output.json)
+                - echo "Validating taskdef.json..."
+                - jq . taskdef.json || { echo "Invalid JSON in taskdef.json"; exit 1; }
+                - echo "Contents of taskdef.json:"
+                - cat taskdef.json
+                - aws ecs register-task-definition --cli-input-json file://taskdef.json > taskdef_output.json || { echo "Failed to register task definition: $(cat taskdef_output.json)"; exit 1; }
+                - TASK_DEF_ARN=$(jq -r .taskDefinition.taskDefinitionArn taskdef_output.json || { echo "Failed to parse taskdef_output.json"; exit 1; })
                 - |
                   cat << EOF > appspec.yaml
                   version: 0.0
@@ -578,7 +583,7 @@ Resources:
                     - TargetService:
                         Type: AWS::ECS::Service
                         Properties:
-                          TaskDefinition: "$TASK_DEF_ARN"  # Updated: Use the dynamic ARN
+                          TaskDefinition: "$TASK_DEF_ARN"
                           LoadBalancerInfo:
                             ContainerName: "app"
                             ContainerPort: 8080
