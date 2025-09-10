@@ -536,10 +536,6 @@ Resources:
                 - jq -r .ImageURI imageDetail.json > image_uri.txt
                 - IMAGE_URI=$(cat image_uri.txt)
                 - |
-                  cat << EOF > imagedefinitions.json
-                  [{"name":"app","imageUri":"$IMAGE_URI"}]
-                  EOF
-                - |
                   cat << EOF > taskdef.json
                   {
                     "family": "AppTask",
@@ -552,7 +548,7 @@ Resources:
                     "containerDefinitions": [
                       {
                         "name": "app",
-                        "image": "$IMAGE_URI", # <--- FIX APPLIED
+                        "image": "$IMAGE_URI",
                         "portMappings": [
                           {
                             "containerPort": 8080,
@@ -571,6 +567,10 @@ Resources:
                     ]
                   }
                   EOF
+                - |  # New: Register the task definition and capture the ARN
+                  aws ecs register-task-definition --cli-input-json file://taskdef.json > taskdef_output.json
+                - |  # New: Extract the ARN
+                  TASK_DEF_ARN=$(jq -r .taskDefinition.taskDefinitionArn taskdef_output.json)
                 - |
                   cat << EOF > appspec.yaml
                   version: 0.0
@@ -578,10 +578,14 @@ Resources:
                     - TargetService:
                         Type: AWS::ECS::Service
                         Properties:
-                          TaskDefinition: "<TASK_DEFINITION>"
+                          TaskDefinition: "$TASK_DEF_ARN"  # Updated: Use the dynamic ARN
                           LoadBalancerInfo:
                             ContainerName: "app"
                             ContainerPort: 8080
+                  EOF
+                - |
+                  cat << EOF > imagedefinitions.json
+                  [{"name":"app","imageUri":"$IMAGE_URI"}]
                   EOF
           artifacts:
             files:
