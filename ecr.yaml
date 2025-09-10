@@ -621,6 +621,10 @@ Resources:
                   - s3:GetObjectVersion
                 Resource:
                   - !Sub "${ArtifactBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - ecs:RegisterTaskDefinition
+                Resource: "*"
 
   # CodePipeline
   CodePipeline:
