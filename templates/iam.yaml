@@ -69,7 +69,7 @@ Resources:
                   - logs:PutLogEvents
                 Resource: '*'
 
-  # CodePipeline Role
+  # CodePipeline Roles
   CodePipelineRole:
     Type: AWS::IAM::Role
     Properties:
