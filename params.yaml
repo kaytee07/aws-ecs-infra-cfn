@@ -1,12 +1,6 @@
-template-file-path: ecr.yaml
+template-file-path: templates/iam.yaml
 parameters:
-  PrivateSubnet1Cidr: 10.0.2.0/24
-  AllowedGithubRepo: kaytee07/aws-java-app
-  PublicSubnet2Cidr: 10.0.1.0/24
-  VpcCidr: 10.0.0.0/16
-  EnvironmentName: taylor-ecs-stack
-  PrivateSubnet2Cidr: 10.0.3.0/24
-  AllowedGithubBranch: refs/heads/main
-  AppPort: '80'
-  PublicSubnet1Cidr: 10.0.0.0/24
+  EcrRepositoryArn: arn:aws:ecr:eu-west-1:714377355835:repository/spring-boot-app-repo
+  GitHubBranch: main
+  GitHubRepo: kaytee07/aws-java-webapp
 tags: {}
