@@ -49,7 +49,7 @@ Resources:
   GreenTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: green-tg  # For green environment
+      Name: green-tg  # For green environments
       Port: 8080
       Protocol: HTTP
       VpcId: !Ref VpcId
