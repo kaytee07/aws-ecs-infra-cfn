@@ -1,0 +1,14 @@
+template-file-path: templates/taylor-ecs-cluster-stack.yaml
+parameters:
+  TargetGroupArn: >-
+    arn:aws:elasticloadbalancing:eu-west-1:714377355835:targetgroup/blue-tg/a4c049e11927f1ca
+  PrivateSubnetIds: subnet-006214bfb9d446345,subnet-0393e88aa8ffd0833
+  TaskCpu: '256'
+  VpcId: vpc-046b22b1faa1aa9b3
+  EcsTaskExecutionRoleArn: >-
+    arn:aws:iam::714377355835:role/taylor-ecs-iam-policy-EcsTaskExecutionRole-cT6h9ncbHZ1l
+  TaskMemory: '512'
+  ContainerImage: 714377355835.dkr.ecr.eu-west-1.amazonaws.com/spring-boot-app-repo:latest
+  ClusterName: SpringBootCluster
+  AlbSecurityGroupId: sg-064ff4fa3af028a0a
+tags: {}
