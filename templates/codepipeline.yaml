@@ -1,41 +1,51 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: CodePipeline and CodeDeploy for ECS blue/green
+Description: "CodePipeline with S3 Source (AppSpec + TaskDef) and ECS Blue/Green Deployment"
 
 Parameters:
   PipelineName:
     Type: String
     Default: SpringBootPipeline
-  EcrRepositoryName:
-    Type: String
+
   CodePipelineRoleArn:
     Type: String
+    Description: ARN of the IAM role for CodePipeline
+
   CodeDeployRoleArn:
     Type: String
+    Description: ARN of the IAM role for CodeDeploy
+
   EcsClusterName:
     Type: String
+    Default: SpringBootCluster
+
   EcsServiceName:
     Type: String
+    Default: spring-boot-service
+
   BlueTargetGroupName:
     Type: String
-    Description: Name of blue target group
+
   GreenTargetGroupName:
     Type: String
-    Description: Name of green target group
+
   ListenerArn:
     Type: String
-    Description: ARN of ALB listener
 
 Resources:
   ArtifactBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub ${AWS::AccountId}-springboot-artifacts
+      BucketName: !Sub "${AWS::AccountId}-springboot-artifacts"
+      VersioningConfiguration:
+        Status: Enabled
+    DeletionPolicy: Retain
 
   CodeDeployApp:
     Type: AWS::CodeDeploy::Application
     Properties:
       ApplicationName: SpringBootCodeDeployApp
       ComputePlatform: ECS
+    DeletionPolicy: Retain
 
   DeploymentGroup:
     Type: AWS::CodeDeploy::DeploymentGroup
@@ -64,6 +74,7 @@ Resources:
       ECSServices:
         - ServiceName: !Ref EcsServiceName
           ClusterName: !Ref EcsClusterName
+    DeletionPolicy: Retain
 
   CodePipeline:
     Type: AWS::CodePipeline::Pipeline
@@ -76,20 +87,21 @@ Resources:
       Stages:
         - Name: Source
           Actions:
-            - Name: ECRSource
+            - Name: AppSpecSource
               ActionTypeId:
                 Category: Source
                 Owner: AWS
-                Provider: ECR
+                Provider: S3
                 Version: '1'
               Configuration:
-                RepositoryName: !Ref EcrRepositoryName
-                ImageTag: latest
+                S3Bucket: !Ref ArtifactBucket
+                S3ObjectKey: appspec-bundle.zip
               OutputArtifacts:
                 - Name: SourceOutput
+
         - Name: Deploy
           Actions:
-            - Name: ECSDeploy
+            - Name: ECSBlueGreenDeploy
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
@@ -100,9 +112,25 @@ Resources:
                 DeploymentGroupName: !Ref DeploymentGroup
               InputArtifacts:
                 - Name: SourceOutput
+              RunOrder: 1
 
 Outputs:
   PipelineName:
-    Value: !Ref CodePipeline
+    Value: !Ref PipelineName
     Export:
       Name: !Sub ${AWS::StackName}-PipelineName
+
+  CodeDeployAppName:
+    Value: !Ref CodeDeployApp
+    Export:
+      Name: !Sub ${AWS::StackName}-CodeDeployAppName
+
+  DeploymentGroupName:
+    Value: !Ref DeploymentGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-DeploymentGroupName
+
+  ArtifactBucketName:
+    Value: !Ref ArtifactBucket
+    Export:
+      Name: !Sub ${AWS::StackName}-ArtifactBucketName

@@ -1,0 +1,34 @@
+[
+  {
+    "ParameterKey": "BlueTargetGroupName",
+    "ParameterValue": "blue-tg"
+  },
+  {
+    "ParameterKey": "CodeDeployRoleArn",
+    "ParameterValue": "arn:aws:iam::714377355835:role/taylor-ecs-iam-policy-CodeDeployRole-FCMhWhJnvwkD"
+  },
+  {
+    "ParameterKey": "CodePipelineRoleArn",
+    "ParameterValue": "arn:aws:iam::714377355835:role/taylor-ecs-iam-policy-CodePipelineRole-NkmEbn4N793u"
+  },
+  {
+    "ParameterKey": "EcsClusterName",
+    "ParameterValue": "SpringBootCluster"
+  },
+  {
+    "ParameterKey": "EcsServiceName",
+    "ParameterValue": "spring-boot-service"
+  },
+  {
+    "ParameterKey": "GreenTargetGroupName",
+    "ParameterValue": "green-tg"
+  },
+  {
+    "ParameterKey": "ListenerArn",
+    "ParameterValue": "arn:aws:elasticloadbalancing:eu-west-1:714377355835:listener/app/SpringBootALB/f53d224bf6a99cbc/53dff455fd70193d"
+  },
+  {
+    "ParameterKey": "PipelineName",
+    "ParameterValue": "TaylorSpringBootPipeline"
+  }
+]
