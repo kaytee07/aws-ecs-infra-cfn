@@ -1,0 +1,14 @@
+template-file-path: templates/codepipeline.yaml
+parameters:
+  ListenerArn: >-
+    arn:aws:elasticloadbalancing:eu-west-1:714377355835:listener/app/SpringBootALB/f53d224bf6a99cbc/53dff455fd70193d
+  BlueTargetGroupName: blue-tg
+  PipelineName: TaylorSpringBootPipeline
+  CodePipelineRoleArn: >-
+    arn:aws:iam::714377355835:role/taylor-ecs-iam-policy-CodePipelineRole-NkmEbn4N793u
+  EcsClusterName: SpringBootCluster
+  EcsServiceName: spring-boot-service
+  CodeDeployRoleArn: >-
+    arn:aws:iam::714377355835:role/taylor-ecs-iam-policy-CodeDeployRole-FCMhWhJnvwkD
+  GreenTargetGroupName: green-tg
+tags: {}
