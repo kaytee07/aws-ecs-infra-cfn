@@ -1,0 +1,4 @@
+template-file-path: templates/taylor-ecs-ecr-stack.yaml
+parameters:
+  RepositoryName: spring-boot-app-repo
+tags: {}
