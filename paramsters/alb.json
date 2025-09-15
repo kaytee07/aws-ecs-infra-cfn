@@ -1,0 +1,6 @@
+template-file-path: templates/alb.yaml
+parameters:
+  PublicSubnetIds: subnet-0995299c785190b7e,subnet-0f3ef688b1be76c1c
+  VpcId: vpc-046b22b1faa1aa9b3
+  AlbName: SpringBootALB
+tags: {}
