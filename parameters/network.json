@@ -1,4 +1,4 @@
-template-file-path: templates/taylor-ecs-network-stack.yaml
+template-file-path: templates/network.yaml
 parameters:
   PrivateSubnet1Cidr: 10.0.3.0/24
   AvailabilityZone1: eu-west-1a
