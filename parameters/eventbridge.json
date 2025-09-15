@@ -1,4 +1,4 @@
-template-file-path: templates/eventbridge.yanl
+template-file-path: templates/eventbridge.yaml
 parameters:
   CodePipelineName: TaylorSpringBootPipeline
   EcrRepositoryName: spring-boot-app-repo
